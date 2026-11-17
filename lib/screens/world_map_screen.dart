@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'quiz_screen.dart';
+
 class WorldMapScreen extends StatelessWidget {
   const WorldMapScreen({super.key});
 
@@ -37,13 +39,12 @@ class WorldMapScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Vista previa: las preguntas y los desbloqueos están pendientes.',
+                  'Juega el Planeta Volcánico. Los demás mundos siguen bloqueados.',
                 ),
                 const SizedBox(height: 20),
                 for (int i = 0; i < nombres.length; i++)
                   Container(
                     margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: i == 0
                           ? const Color(0xFF432D32)
@@ -53,44 +54,62 @@ class WorldMapScreen extends StatelessWidget {
                         color: i == 0 ? Colors.orangeAccent : Colors.white24,
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          iconos[i],
-                          size: 36,
-                          color: i == 0 ? Colors.orangeAccent : Colors.white38,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${i + 1}. ${nombres[i]}',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: i == 0
+                          ? () => Navigator.push(
+                              context,
+                              MaterialPageRoute<void>(
+                                builder: (context) => const QuizScreen(),
                               ),
-                              const SizedBox(height: 4),
-                              Text('${i == 5 ? 20 : 10} preguntas'),
-                              Text(
-                                i == 0 ? 'Disponible' : 'Bloqueado',
-                                style: TextStyle(
-                                  color: i == 0
-                                      ? Colors.orangeAccent
-                                      : Colors.white54,
-                                ),
+                            )
+                          : null,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            Icon(
+                              iconos[i],
+                              size: 36,
+                              color: i == 0
+                                  ? Colors.orangeAccent
+                                  : Colors.white38,
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${i + 1}. ${nombres[i]}',
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text('${i == 5 ? 20 : 10} preguntas'),
+                                  Text(
+                                    i == 0 ? 'Disponible' : 'Bloqueado',
+                                    style: TextStyle(
+                                      color: i == 0
+                                          ? Colors.orangeAccent
+                                          : Colors.white54,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            ),
+                            // Los otros cinco mundos permanecen bloqueados.
+                            Icon(
+                              i == 0 ? Icons.lock_open : Icons.lock,
+                              color: i == 0
+                                  ? Colors.orangeAccent
+                                  : Colors.white38,
+                            ),
+                          ],
                         ),
-                        // Solo es una indicación visual; no hay desbloqueos.
-                        Icon(
-                          i == 0 ? Icons.lock_open : Icons.lock,
-                          color: i == 0 ? Colors.orangeAccent : Colors.white38,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
               ],
