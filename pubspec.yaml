@@ -36,6 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   # Reproduce el robot y permite controlar is_hands_up.
   rive: 0.13.20
+  supabase_flutter: ^2.18.3
 
 dev_dependencies:
   flutter_test:

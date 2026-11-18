@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 
 import 'login_screen.dart';
+import '../services/auth_service.dart';
 
 class WelcomeScreen extends StatelessWidget {
-  const WelcomeScreen({super.key});
+  const WelcomeScreen({
+    super.key,
+    this.authService = const UnavailableAuthService(),
+  });
+
+  final AuthService authService;
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +61,14 @@ class WelcomeScreen extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 40),
+                  if (authService.configurationMessage != null) ...[
+                    Text(
+                      authService.configurationMessage!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.amberAccent),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   FilledButton.icon(
                     icon: const Icon(Icons.arrow_forward),
                     label: const Text('Comenzar aventura'),
@@ -63,7 +77,8 @@ class WelcomeScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (context) => const LoginScreen(),
+                          builder: (context) =>
+                              LoginScreen(authService: authService),
                         ),
                       );
                     },
