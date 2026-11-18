@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 
 import 'login_screen.dart';
 import '../services/auth_service.dart';
+import '../services/progress_service.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({
     super.key,
     this.authService = const UnavailableAuthService(),
+    this.progressService = const UnavailableProgressService(),
   });
 
   final AuthService authService;
+  final ProgressService progressService;
 
   @override
   Widget build(BuildContext context) {
@@ -77,8 +80,10 @@ class WelcomeScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (context) =>
-                              LoginScreen(authService: authService),
+                          builder: (context) => LoginScreen(
+                            authService: authService,
+                            progressService: progressService,
+                          ),
                         ),
                       );
                     },

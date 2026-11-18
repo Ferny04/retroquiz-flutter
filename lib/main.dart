@@ -3,11 +3,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/welcome_screen.dart';
 import 'services/auth_service.dart';
+import 'services/progress_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   const key = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
   AuthService authService = const UnavailableAuthService();
+  ProgressService progressService = const UnavailableProgressService();
   if (key.isNotEmpty && key.startsWith('sb_publishable_')) {
     try {
       await Supabase.initialize(
@@ -16,6 +18,7 @@ Future<void> main() async {
         debug: false,
       );
       authService = SupabaseAuthService(Supabase.instance.client);
+      progressService = SupabaseProgressService(Supabase.instance.client);
     } catch (_) {
       authService = const UnavailableAuthService(
         'No se pudo inicializar Supabase. Revisa la configuración y reinicia la aplicación. '
@@ -28,16 +31,20 @@ Future<void> main() async {
       'No uses claves secretas ni contraseñas de base de datos.',
     );
   }
-  runApp(RetroQuizApp(authService: authService));
+  runApp(
+    RetroQuizApp(authService: authService, progressService: progressService),
+  );
 }
 
 class RetroQuizApp extends StatelessWidget {
   const RetroQuizApp({
     super.key,
     this.authService = const UnavailableAuthService(),
+    this.progressService = const UnavailableProgressService(),
   });
 
   final AuthService authService;
+  final ProgressService progressService;
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +57,10 @@ class RetroQuizApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF101329),
         useMaterial3: true,
       ),
-      home: WelcomeScreen(authService: authService),
+      home: WelcomeScreen(
+        authService: authService,
+        progressService: progressService,
+      ),
     );
   }
 }

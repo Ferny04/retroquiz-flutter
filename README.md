@@ -1,7 +1,7 @@
 # RetroQuiz: Aventura Multiverso
 
-El tercer avance conecta el registro y el inicio de sesión por correo y contraseña
-con Supabase Authentication.
+El cuarto avance guarda y recupera el progreso del Planeta Volcánico en Supabase,
+conservando el registro e inicio de sesión del tercer avance.
 
 ## Alcance actual
 
@@ -17,9 +17,12 @@ con Supabase Authentication.
   y no modifica esa sesión.
 - Planeta Volcánico: 10 preguntas por partida desde el banco local de 24 preguntas
   de seis categorías, preguntas y respuestas aleatorias, puntuación y resultados.
-- Los otros cinco mundos del mapa siguen bloqueados.
+- Al terminar las 10 preguntas con sesión, guarda el mundo como completado y
+  conserva la mejor puntuación. Completar significa terminar, incluso con 0 aciertos.
+- Reino Arcoíris se desbloquea al recuperar ese progreso. Al tocarlo muestra un
+  aviso de próximas preguntas; los mundos del tres al seis siguen bloqueados.
 
-No hay guardado de progreso en Supabase, ranking, vidas, modo ultradifícil,
+No hay ranking, vidas, modo ultradifícil,
 almacenamiento de imágenes ni nuevos planetas jugables.
 
 ## Configurar Supabase
@@ -33,7 +36,11 @@ almacenamiento de imágenes ni nuevos planetas jugables.
 4. Con **Confirm email** activado, revisa la configuración del envío de correo y
    la **Site URL** usada por el enlace de confirmación. Este avance no agrega
    enlaces profundos: confirma en el navegador y regresa a la app para iniciar
-   sesión manualmente. No necesitas tablas ni políticas de progreso.
+   sesión manualmente.
+5. Antes de probar el guardado, abre **SQL Editor > New query** y ejecuta completo
+   [supabase/migrations/004_world_progress.sql](supabase/migrations/004_world_progress.sql).
+   Es una migración para ejecutar una vez, que crea objetos nuevos; no se aplicó
+   automáticamente al proyecto remoto.
 
 No pongas claves reales en código, README, pruebas o archivos versionados. Nunca
 uses una clave secreta `sb_secret_`, una clave `service_role` ni la contraseña de
@@ -135,6 +142,7 @@ No requieren Publishable key, credenciales reales ni acceso al proyecto Supabase
 ```powershell
 flutter analyze
 flutter test
+git diff --check
 ```
 
 Se comprueban validaciones, errores, carga, solicitudes duplicadas, navegación
@@ -154,3 +162,100 @@ emulador, revisa ambos extremos de la lista y el comportamiento al soltar el ded
 Referencias oficiales: [inicialización de Flutter](https://supabase.com/docs/reference/dart/initializing),
 [inicio de sesión](https://supabase.com/docs/reference/dart/auth-signinwithpassword) y
 [registro y confirmación de correo](https://supabase.com/docs/reference/dart/auth-signup).
+
+## Cuarto avance: cómo funciona el progreso
+
+La tabla nueva `world_progress` contiene `user_id`, `world_id` (`volcanic`),
+`best_score` (0–1000, múltiplos de 100) y `completed`. La clave primaria combina
+usuario y mundo: repetir una partida no crea otra fila. No requiere tablas de
+mundos, perfiles ni preguntas remotas.
+
+La función SQL `complete_volcanic_world(p_score)` obtiene el usuario con
+`auth.uid()`, inserta su progreso y, si ya existe, usa `greatest` para conservar
+el máximo. Todo ocurre en una operación, incluso si llegan dos guardados a la vez.
+La política RLS permite a cada cuenta leer solamente sus filas; los visitantes
+no tienen permisos. `authenticated` solo tiene `SELECT` en la tabla: no puede
+insertar, actualizar ni borrar directamente. El guardado pasa por la RPC, que usa
+`security definer`, `search_path = ''` y nombres de tabla con esquema explícito.
+Ejecuta la migración como `postgres` en SQL Editor, que será el propietario.
+La función comprueba que `auth.uid()` no sea nulo y que los puntos no sean nulos,
+estén entre 0 y 1000 y sean múltiplos de 100. Solo `authenticated` recibe `EXECUTE`.
+El cliente envía únicamente `p_score`; el usuario se obtiene de la sesión del
+servidor y no se acepta como parámetro. La RPC devuelve solo la fila que acaba
+de guardar para ese usuario, aunque su propietario pueda saltarse RLS.
+
+Las preguntas y el cálculo de puntos siguen siendo locales. El servidor no
+comprueba las respuestas ni que se hayan completado las 10 preguntas: una cuenta
+autenticada puede enviar cualquier puntuación válida, incluido 1000. Estas
+validaciones protegen el acceso y el formato de los datos; no evitan trampas.
+
+Funciones nuevas y cambios que puedes explicar en clase:
+
+| Función o propiedad | Explicación |
+| --- | --- |
+| `WorldProgress.fromJson` | Convierte la fila recibida en un objeto con cuatro datos. |
+| `currentUserId` | Obtiene el identificador de la cuenta que tiene sesión. |
+| `loadVolcanicProgress` | Consulta solo el Volcánico del usuario actual; devuelve `null` si todavía no hay partida. |
+| `saveVolcanicProgress` | Comprueba la cuenta y los puntos, llama a la función SQL y devuelve la fila guardada. |
+| Métodos de `UnavailableProgressService` | Devuelven un error controlado cuando Supabase no está configurado. |
+| `_loadProgress` | Muestra carga, consulta el servicio y actualiza el mapa con `setState`; permite reintentar si falla. |
+| `_secondWorldUnlocked` | Comprueba que sea una partida real y que el Volcánico esté completado. |
+| `_openVolcanicWorld` | Abre la partida con `Navigator` y recarga el progreso al regresar de los resultados. |
+| `_showSecondWorld` | Muestra que Reino Arcoíris ya está desbloqueado y tendrá preguntas después. |
+| `_saveProgress` | Guarda al abrir resultados, evita solicitudes duplicadas y muestra éxito o un botón para reintentar. |
+| `complete_volcanic_world` (SQL) | Inserta o actualiza una sola fila, manteniendo la mejor puntuación. |
+
+`initState` inicia la consulta del mapa o el guardado de resultados una vez.
+En la partida captura la cuenta inicial; si cambia o desaparece la sesión, el
+servicio rechaza el guardado. `_nextQuestion` ahora espera a que cierres resultados
+antes de cerrar también la partida: así vuelves al mapa y consultas el dato guardado.
+`main`, bienvenida y login pasan el mismo servicio con parámetros normales de
+constructores, sin gestores de estado adicionales ni dependencias nuevas de producción.
+
+La demo omite tanto consultas como guardados, incluso si Supabase conserva una
+sesión anterior. Si falla el guardado, los resultados permanecen visibles y puedes
+reintentar antes de salir. No hay cola local de partidas pendientes; si sales, ese
+resultado no se conserva para reintentar después. Si se perdió la respuesta pero el
+servidor sí guardó, repetir la petición mantiene una única fila y el máximo.
+Las peticiones de progreso tienen un límite de espera de 15 segundos.
+
+## Comprobar el cuarto avance en Android Studio
+
+1. Ejecuta primero la migración anterior en el SQL Editor de tu proyecto Supabase.
+   Verifica en **Table Editor** que exista `world_progress` y que tenga RLS activado.
+2. Usa la configuración Flutter de Android Studio descrita arriba, con tu
+   Publishable key local. Ejecuta en un emulador o teléfono con Internet.
+3. Inicia sesión con una cuenta sin progreso. Reino Arcoíris debe estar bloqueado.
+   Abandona una partida antes de la décima pregunta: no debe aparecer una fila.
+4. Termina las 10 preguntas. En resultados debe aparecer **Progreso guardado**.
+   Comprueba en Supabase una fila con el UUID de esa cuenta, `world_id = volcanic`,
+   los puntos obtenidos y `completed = true`.
+5. Pulsa **Volver al mapa**. Debe mostrar **Completado**, la mejor puntuación y
+   Reino Arcoíris desbloqueado. Al tocar el segundo mundo aparece el aviso; todavía
+   no abre otro cuestionario.
+6. Repite con menos aciertos: debe quedar una sola fila y conservar el récord.
+   Repite con más aciertos y comprueba que aumente.
+7. Detén y vuelve a ejecutar la app; entra nuevamente por login. El mapa debe
+   recuperar el récord y el desbloqueo. El SDK conserva la sesión, pero la entrada
+   sigue siendo explícita por login, como en el tercer avance.
+8. Regresa a bienvenida e inicia sesión con otra cuenta: debe ver su propio mapa,
+   sin el progreso de la anterior. Revisa las políticas RLS en Supabase;
+   **Table Editor** con permisos de administrador puede mostrar ambas cuentas.
+9. Abre **Vista previa de mundos**, termina una partida y vuelve al mapa: muestra
+   el aviso de demo, no desbloquea el segundo mundo ni modifica filas, aunque haya
+   una sesión anterior.
+10. Entra al mapa con conexión y después desconecta Internet antes de terminar.
+    Espera el error, recupera Internet y pulsa **Reintentar guardado**. Debe guardar
+    sin duplicar filas. También entra sin red al mapa, cuando sea posible, y usa
+    **Reintentar carga** después de reconectar.
+
+Las nuevas pruebas de interfaz recorren partidas completas, abandono, demo con
+sesión previa, errores/reintento, recuperación y desbloqueo. Las pruebas del
+servicio usan el cliente Supabase real con respuestas HTTP simuladas (`http` se
+añadió solo a `dev_dependencies`). Verifican llamadas, filtros, datos y errores.
+El comportamiento SQL del máximo se simula en estas pruebas: ejecutar la migración,
+comprobar la concurrencia y verificar RLS contra Supabase real siguen siendo pasos
+manuales; las pruebas no usan credenciales ni cambian el backend.
+
+Referencias del guardado: [llamadas RPC desde Flutter](https://supabase.com/docs/reference/dart/rpc)
+y [políticas RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).

@@ -2,10 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../data/questions_data.dart';
 import '../models/question.dart';
+import '../services/progress_service.dart';
 import 'quiz_result_screen.dart';
 
 class QuizScreen extends StatefulWidget {
-  const QuizScreen({super.key});
+  const QuizScreen({
+    super.key,
+    this.isDemo = true,
+    this.progressService = const UnavailableProgressService(),
+  });
+
+  final bool isDemo;
+  final ProgressService progressService;
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -16,11 +24,14 @@ class _QuizScreenState extends State<QuizScreen> {
   int _questionIndex = 0;
   int _correctAnswers = 0;
   int? _selectedAnswer;
+  String? _userId;
+  bool _finished = false;
 
   @override
   void initState() {
     super.initState();
     _questions = selectGameQuestions();
+    _userId = widget.isDemo ? null : widget.progressService.currentUserId;
   }
 
   void _answer(int index) {
@@ -34,19 +45,24 @@ class _QuizScreenState extends State<QuizScreen> {
     });
   }
 
-  void _nextQuestion() {
-    if (_selectedAnswer == null) return;
+  Future<void> _nextQuestion() async {
+    if (_selectedAnswer == null || _finished) return;
     if (_questionIndex == _questions.length - 1) {
-      // Reemplazar la partida permite volver directamente al mapa.
-      Navigator.pushReplacement(
+      _finished = true;
+      // Espera el resultado antes de cerrar la partida y recargar el mapa.
+      await Navigator.push(
         context,
         MaterialPageRoute<void>(
           builder: (context) => QuizResultScreen(
             correctAnswers: _correctAnswers,
             totalQuestions: _questions.length,
+            isDemo: widget.isDemo,
+            userId: _userId,
+            progressService: widget.progressService,
           ),
         ),
       );
+      if (mounted) Navigator.pop(context);
       return;
     }
     setState(() {

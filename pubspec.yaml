@@ -39,6 +39,8 @@ dependencies:
   supabase_flutter: ^2.18.3
 
 dev_dependencies:
+  # Respuestas HTTP simuladas para probar el servicio sin cuentas reales.
+  http: ^1.6.0
   flutter_test:
     sdk: flutter
 

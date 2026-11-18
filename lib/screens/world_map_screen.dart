@@ -1,11 +1,81 @@
 import 'package:flutter/material.dart';
 
+import '../models/world_progress.dart';
+import '../services/progress_service.dart';
 import 'quiz_screen.dart';
 
-class WorldMapScreen extends StatelessWidget {
-  const WorldMapScreen({super.key, this.isDemo = true});
+class WorldMapScreen extends StatefulWidget {
+  const WorldMapScreen({
+    super.key,
+    this.isDemo = true,
+    this.progressService = const UnavailableProgressService(),
+  });
 
   final bool isDemo;
+  final ProgressService progressService;
+
+  @override
+  State<WorldMapScreen> createState() => _WorldMapScreenState();
+}
+
+class _WorldMapScreenState extends State<WorldMapScreen> {
+  WorldProgress? _progress;
+  bool _loading = false;
+  String? _error;
+
+  bool get _secondWorldUnlocked =>
+      !widget.isDemo && _progress?.completed == true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProgress();
+  }
+
+  Future<void> _loadProgress() async {
+    if (widget.isDemo || _loading) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+      _progress = null;
+    });
+    try {
+      final progress = await widget.progressService.loadVolcanicProgress();
+      if (!mounted) return;
+      setState(() => _progress = progress);
+    } catch (_) {
+      if (!mounted) return;
+      setState(
+        () => _error =
+            'No se pudo cargar el progreso. Revisa tu conexión y reintenta.',
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _openVolcanicWorld() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (context) => QuizScreen(
+          isDemo: widget.isDemo,
+          progressService: widget.progressService,
+        ),
+      ),
+    );
+    if (mounted) await _loadProgress();
+  }
+
+  void _showSecondWorld() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Reino Arcoíris desbloqueado. Sus preguntas estarán disponibles próximamente.',
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +110,7 @@ class WorldMapScreen extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
-                  if (isDemo) ...[
+                  if (widget.isDemo) ...[
                     const Text(
                       'Demostración · Sin sesión de usuario. El progreso no se guarda.',
                       style: TextStyle(color: Colors.amberAccent),
@@ -52,9 +122,24 @@ class WorldMapScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Juega el Planeta Volcánico. Los demás mundos siguen bloqueados.',
+                  Text(
+                    _secondWorldUnlocked
+                        ? 'Reino Arcoíris desbloqueado. Próximamente tendrá preguntas.'
+                        : 'Completa el Planeta Volcánico para desbloquear Reino Arcoíris.',
                   ),
+                  if (_loading) const LinearProgressIndicator(),
+                  if (_error != null) ...[
+                    Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.amberAccent),
+                    ),
+                    TextButton(
+                      onPressed: _loadProgress,
+                      child: const Text('Reintentar carga'),
+                    ),
+                  ],
+                  if (_progress != null)
+                    Text('Mejor puntuación: ${_progress!.bestScore}'),
                   const SizedBox(height: 20),
                   for (int i = 0; i < nombres.length; i++)
                     Container(
@@ -70,13 +155,12 @@ class WorldMapScreen extends StatelessWidget {
                       ),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(16),
-                        onTap: i == 0
-                            ? () => Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (context) => const QuizScreen(),
-                                ),
-                              )
+                        onTap: _loading
+                            ? null
+                            : i == 0
+                            ? _openVolcanicWorld
+                            : i == 1 && _secondWorldUnlocked
+                            ? _showSecondWorld
                             : null,
                         child: Padding(
                           padding: const EdgeInsets.all(16),
@@ -85,7 +169,8 @@ class WorldMapScreen extends StatelessWidget {
                               Icon(
                                 iconos[i],
                                 size: 36,
-                                color: i == 0
+                                color:
+                                    i == 0 || (i == 1 && _secondWorldUnlocked)
                                     ? Colors.orangeAccent
                                     : Colors.white38,
                               ),
@@ -104,7 +189,13 @@ class WorldMapScreen extends StatelessWidget {
                                     const SizedBox(height: 4),
                                     Text('${i == 5 ? 20 : 10} preguntas'),
                                     Text(
-                                      i == 0 ? 'Disponible' : 'Bloqueado',
+                                      i == 0
+                                          ? _progress?.completed == true
+                                                ? 'Completado'
+                                                : 'Disponible'
+                                          : i == 1 && _secondWorldUnlocked
+                                          ? 'Desbloqueado · Próximamente'
+                                          : 'Bloqueado',
                                       style: TextStyle(
                                         color: i == 0
                                             ? Colors.orangeAccent
@@ -114,10 +205,12 @@ class WorldMapScreen extends StatelessWidget {
                                   ],
                                 ),
                               ),
-                              // Los otros cinco mundos permanecen bloqueados.
                               Icon(
-                                i == 0 ? Icons.lock_open : Icons.lock,
-                                color: i == 0
+                                i == 0 || (i == 1 && _secondWorldUnlocked)
+                                    ? Icons.lock_open
+                                    : Icons.lock,
+                                color:
+                                    i == 0 || (i == 1 && _secondWorldUnlocked)
                                     ? Colors.orangeAccent
                                     : Colors.white38,
                               ),
