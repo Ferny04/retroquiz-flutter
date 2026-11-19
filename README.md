@@ -1,7 +1,7 @@
 # RetroQuiz: Aventura Multiverso
 
-El cuarto avance guarda y recupera el progreso del Planeta Volcánico en Supabase,
-conservando el registro e inicio de sesión del tercer avance.
+El quinto avance agrega un avatar por cuenta en Supabase Storage. El mapa
+muestra la imagen al iniciar sesión y permite cambiarla desde el icono de perfil.
 
 ## Alcance actual
 
@@ -14,7 +14,8 @@ conservando el registro e inicio de sesión del tercer avance.
   pantalla de confirmación que reemplaza el registro y permite volver al login.
 - Vista previa identificada como **demostración**. No crea una sesión ni guarda
   progreso. Si el SDK conserva una sesión anterior, este botón solo abre la demo
-  y no modifica esa sesión.
+  y no modifica esa sesión. La demo tampoco consulta ni permite cambiar avatares.
+- Avatar privado para cuentas autenticadas. Acepta JPG y PNG de hasta 2 MB.
 - Planeta Volcánico: 10 preguntas por partida desde el banco local de 24 preguntas
   de seis categorías, preguntas y respuestas aleatorias, puntuación y resultados.
 - Al terminar las 10 preguntas con sesión, guarda el mundo como completado y
@@ -22,8 +23,7 @@ conservando el registro e inicio de sesión del tercer avance.
 - Reino Arcoíris se desbloquea al recuperar ese progreso. Al tocarlo muestra un
   aviso de próximas preguntas; los mundos del tres al seis siguen bloqueados.
 
-No hay ranking, vidas, modo ultradifícil,
-almacenamiento de imágenes ni nuevos planetas jugables.
+No hay ranking, vidas, modo ultradifícil ni nuevos planetas jugables.
 
 ## Configurar Supabase
 
@@ -37,10 +37,14 @@ almacenamiento de imágenes ni nuevos planetas jugables.
    la **Site URL** usada por el enlace de confirmación. Este avance no agrega
    enlaces profundos: confirma en el navegador y regresa a la app para iniciar
    sesión manualmente.
-5. Antes de probar el guardado, abre **SQL Editor > New query** y ejecuta completo
-   [supabase/migrations/004_world_progress.sql](supabase/migrations/004_world_progress.sql).
-   Es una migración para ejecutar una vez, que crea objetos nuevos; no se aplicó
-   automáticamente al proyecto remoto.
+5. Si estás preparando un proyecto vacío, aplica una sola vez la
+   [migración de progreso](supabase/migrations/004_world_progress.sql).
+6. Para el quinto avance, revisa la
+   [migración de avatares](supabase/migrations/005_player_avatars.sql) y ejecútala
+   completa una vez en **SQL Editor > New query**. Si el proyecto ya tiene
+   `world_progress`, ejecuta únicamente la migración de avatares.
+7. En **Storage**, comprueba que `player-avatars` sea privado, que tenga un límite
+   de 2 MB por archivo y que permita `image/jpeg` y `image/png`.
 
 No pongas claves reales en código, README, pruebas o archivos versionados. Nunca
 uses una clave secreta `sb_secret_`, una clave `service_role` ni la contraseña de
@@ -72,8 +76,8 @@ Consulta la [documentación de redirecciones](https://supabase.com/docs/guides/a
 
 ## Ejecutar desde PowerShell
 
-Requiere Flutter compatible con Dart `^3.13.2`, un dispositivo/emulador o destino
-de escritorio/web configurado, y conexión a Internet para autenticar.
+Requiere Flutter 3.47.0 o superior con Dart `^3.13.2`, un dispositivo/emulador o
+destino de escritorio/web configurado, y conexión a Internet para autenticar.
 
 ```powershell
 Set-Location 'C:\Flutter_Proyectos\retroquiz'
@@ -153,6 +157,9 @@ Se conservan las pruebas del banco local, las respuestas aleatorias y las
 partidas con 0, 6 y 10 aciertos, resultados y reinicio.
 También se comprueban los ojos independientes, el registro con error y el
 desplazamiento del mapa en pantallas pequeñas con plataformas Android/iOS.
+Las pruebas de avatar verifican la ruta por cuenta, la descarga autenticada, el
+reemplazo del objeto, la validación local, los avisos de error y la demo con una
+sesión previa. Usan dobles de prueba y respuestas HTTP simuladas.
 
 El mapa conserva un único `ListView`: respecto al commit `cc5b4fa`, el tercer
 avance solo agregó el aviso de demo y un espacio de 16 píxeles. No se modifican
@@ -221,8 +228,7 @@ Las peticiones de progreso tienen un límite de espera de 15 segundos.
 
 ## Comprobar el cuarto avance en Android Studio
 
-1. Ejecuta primero la migración anterior en el SQL Editor de tu proyecto Supabase.
-   Verifica en **Table Editor** que exista `world_progress` y que tenga RLS activado.
+1. Verifica en **Table Editor** que exista `world_progress` y que tenga RLS activado.
 2. Usa la configuración Flutter de Android Studio descrita arriba, con tu
    Publishable key local. Ejecuta en un emulador o teléfono con Internet.
 3. Inicia sesión con una cuenta sin progreso. Reino Arcoíris debe estar bloqueado.
@@ -259,3 +265,58 @@ manuales; las pruebas no usan credenciales ni cambian el backend.
 
 Referencias del guardado: [llamadas RPC desde Flutter](https://supabase.com/docs/reference/dart/rpc)
 y [políticas RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).
+
+## Quinto avance de avatar privado
+
+El icono de perfil de **Mapa de mundos** abre el selector de imágenes. Flutter
+comprueba el tamaño, identifica el formato por los bytes y verifica que la imagen
+se pueda abrir. El bucket privado aplica también el límite de bytes y la lista de
+tipos MIME admitidos.
+
+El servicio usa el ID de la sesión para leer y guardar `<uid>/avatar`. El archivo
+se reemplaza en la misma ruta aunque cambie de JPG a PNG. Al abrir el mapa,
+consulta si hay avatar y descarga sus bytes con el token de la sesión. Una cuenta
+sin imagen ve el icono de perfil. Las políticas de Storage permiten leer,
+insertar y reemplazar únicamente el objeto cuyo nombre coincide con
+`auth.uid() || '/avatar'`. Una política restrictiva aplica ese aislamiento aunque
+ya existan permisos generales de Storage. La demo omite toda interacción con el
+servicio.
+[Control de acceso de Supabase Storage](https://supabase.com/docs/guides/storage/security/access-control).
+
+### Probar el avatar en Android Studio
+
+1. Aplica la migración de avatares y usa la configuración Flutter descrita arriba.
+   Detén por completo la app y pulsa **Run** para cargar el plugin nuevo.
+2. Guarda un JPG y un PNG pequeños en el dispositivo. En el emulador puedes
+   arrastrarlos a su ventana para copiarlos a **Descargas**.
+3. Inicia sesión con la cuenta A. Toca el icono de perfil arriba a la derecha,
+   identificado como **Cambiar avatar**, y elige una imagen. Debe aparecer
+   **Avatar guardado** y verse la imagen en el mapa. En Storage debe haber un
+   objeto en la carpeta del UUID de A.
+4. Cambia al otro formato. Comprueba que se actualice la imagen y se conserve un
+   solo objeto. Detén la app, vuelve a ejecutarla e inicia sesión con A para
+   comprobar que recupera el avatar.
+5. Vuelve a la bienvenida e inicia sesión con B. Comprueba que vea su propio
+   avatar o el icono de perfil. Guarda una imagen con B y revisa que la de A
+   siga igual. Abre **Vista previa de mundos** con una sesión previa y verifica
+   que no aparezca el control de avatar.
+6. Cancela el selector y comprueba que se conserve el avatar. Prueba una imagen
+   de más de 2 MB y un formato no admitido, como WebP si el selector lo muestra.
+   Desactiva la red después de abrir el mapa para probar el aviso de subida.
+   Para probar la recuperación, entra al mapa y corta la red antes de que
+   termine la consulta. Reconecta y pulsa **Reintentar** si aparece el aviso.
+7. Completa el Volcánico y comprueba que se guarde el progreso, se muestre el
+   récord y se desbloquee Reino Arcoíris.
+
+Si Android cierra RetroQuiz mientras está abierto el selector, vuelve a iniciar
+sesión y selecciona la imagen de nuevo.
+
+Para verificar las políticas en Supabase real, usa un cliente HTTP con la
+Publishable key en `apikey` y el token de acceso de B en `Authorization: Bearer`.
+Prueba GET contra `/storage/v1/object/authenticated/player-avatars/<uid-de-A>/avatar`
+y POST con una imagen válida y `x-upsert: true` contra
+`/storage/v1/object/player-avatars/<uid-de-A>/avatar`. Ninguna operación debe
+tener éxito. Repite con el UUID propio para verificar el acceso autorizado y
+prueba abrir la URL pública del objeto sin sesión. El panel de Storage tiene
+permisos de administrador y sirve para inspeccionar los objetos. Las pruebas
+automáticas no ejecutan estas comprobaciones contra el proyecto remoto.

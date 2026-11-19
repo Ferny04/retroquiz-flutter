@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links_linux
+  file_selector_linux
   rive_common
   url_launcher_linux
 )

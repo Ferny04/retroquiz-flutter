@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:rive/rive.dart' as rive;
 
 import '../services/auth_service.dart';
+import '../services/avatar_service.dart';
 import '../services/progress_service.dart';
 import '../utils/auth_validators.dart';
 import 'register_screen.dart';
@@ -13,10 +14,12 @@ class LoginScreen extends StatefulWidget {
     super.key,
     this.authService = const UnavailableAuthService(),
     this.progressService = const UnavailableProgressService(),
+    this.avatarService,
   });
 
   final AuthService authService;
   final ProgressService progressService;
+  final AvatarService? avatarService;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -104,6 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
             builder: (context) => WorldMapScreen(
               isDemo: false,
               progressService: widget.progressService,
+              avatarService: widget.avatarService,
             ),
           ),
         );
@@ -281,6 +285,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   builder: (context) => WorldMapScreen(
                                     isDemo: false,
                                     progressService: widget.progressService,
+                                    avatarService: widget.avatarService,
                                   ),
                                 ),
                               );

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/world_progress.dart';
+import '../services/avatar_service.dart';
 import '../services/progress_service.dart';
+import '../widgets/player_avatar_button.dart';
 import 'quiz_screen.dart';
 
 class WorldMapScreen extends StatefulWidget {
@@ -9,10 +11,12 @@ class WorldMapScreen extends StatefulWidget {
     super.key,
     this.isDemo = true,
     this.progressService = const UnavailableProgressService(),
+    this.avatarService,
   });
 
   final bool isDemo;
   final ProgressService progressService;
+  final AvatarService? avatarService;
 
   @override
   State<WorldMapScreen> createState() => _WorldMapScreenState();
@@ -97,7 +101,13 @@ class _WorldMapScreenState extends State<WorldMapScreen> {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mapa de mundos')),
+      appBar: AppBar(
+        title: const Text('Mapa de mundos'),
+        actions: [
+          if (widget.avatarService case final service? when !widget.isDemo)
+            PlayerAvatarButton(service: service),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(

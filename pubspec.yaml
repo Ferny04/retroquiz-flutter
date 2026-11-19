@@ -37,6 +37,7 @@ dependencies:
   # Reproduce el robot y permite controlar is_hands_up.
   rive: 0.13.20
   supabase_flutter: ^2.18.3
+  image_picker: ^1.2.4
 
 dev_dependencies:
   # Respuestas HTTP simuladas para probar el servicio sin cuentas reales.
